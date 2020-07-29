@@ -2,37 +2,35 @@
 #include <Console/Graphics.hpp>
 
 
-Graphics::Graphics(const std::vector<std::string>& columnsNames,
-                   const std::vector<std::vector<std::string>>& rowsValues)
-    : _window(nullptr)
+Graphics::Graphics(uint32_t bufferCapacity)
+    : _bufferWindow(nullptr)
+    , _logWindow(nullptr)
     , _menu(nullptr)
-    , _menuItems(nullptr)
-    , _columnsNames(columnsNames)
-    , _rows()
-    , _rowsValues(rowsValues)
+    , _menuItems(new ITEM*[100])
+    , _events()
     , _nullRow("\0")
     , _topPadding(4)
     , _bottomPadding(4)
-    , _horizontalPadding(4)
-    , _columnsCount(columnsNames.size())
-    , _columnWidth()
-    , _rowsCount()
-    , _baseMenuItemId(2)
-    , _rowsForkStateIndex(4)
-    , _rowsForkOwnerIndex(3)
+    , _horizontalPadding(50)
+    , _spaceSizeBetweenBufferAndLog(3)
+    , _bufferCapacity(bufferCapacity)
+    , _bufferAllocationOffset(0)
+    , _bufferAllocation(0)
+    , _rowsCapacity(100)
+    , _rowsCount(0)
+    , _logger("Console")
 {
     // set COLS and LINES variables
     initscr();
 
-    // calculate each columns maximum string length
-    _columnWidth = calculateColumnWidth();
-    createRows();
     init();
+    pushNewEventToLog(_nullRow);
 }
 
 Graphics::~Graphics()
 {
-    wrefresh(_window);
+    wrefresh(_bufferWindow);
+    wrefresh(_logWindow);
 
     // deallocate menu
     unpost_menu(_menu);
@@ -45,102 +43,51 @@ Graphics::~Graphics()
     }
 
     // deallocate window
-    wborder(_window, ' ', ' ', ' ',' ',' ',' ',' ',' ');
+    wborder(_logWindow, ' ', ' ', ' ',' ',' ',' ',' ',' ');
+    wborder(_bufferWindow, ' ', ' ', ' ',' ',' ',' ',' ',' ');
     refresh();
-    delwin(_window);
+    delwin(_logWindow);
+    delwin(_bufferWindow);
 
     // stop ncurses
     endwin();
 }
 
-std::string Graphics::createRow(const std::vector<std::string>& columnsValues)
+void Graphics::shiftAndExtendMenuItems()
 {
-    // this method draws table row out of given values
-    std::string result;
-    uint32_t bordersCount = 0;
-
-    for(const auto& columnValue : columnsValues)
+    if(_rowsCount == _rowsCapacity)
     {
-        // calculate padding between columns row content and column separator
-        uint32_t padding = _columnWidth - columnValue.size();
+        ITEM** newMenuItems = new ITEM*[2*_rowsCapacity];
 
-        // build row
-        result = result + columnValue + std::string(padding, ' ');
-
-        if(++bordersCount != columnsValues.size())
+        for(uint32_t rowId = 0; rowId < _rowsCount; ++rowId)
         {
-            // add column separator if not all columns were filled
-            result = result + "|";
+            newMenuItems[rowId + 1] = _menuItems[rowId];
         }
-        else
+
+        _menuItems = newMenuItems;
+    }
+    else
+    {
+        for(uint32_t rowId = _rowsCount; rowId > 0; --rowId)
         {
-            // append more padding to the last column to fill whole menu window size
-            padding = calculateWindowWidth() - 2 - result.size();
-            result = result + std::string(padding, ' ');
+            _menuItems[rowId] = _menuItems[rowId - 1];
         }
     }
-
-    return result;
 }
 
-void Graphics::createRows()
-{
-    // this method creates rows for table
-    // first two rows are column titles and line separator
-    // succesive rows are table records
-
-    // create row containing column titles
-    // create row containing line separator
-    std::string menuTitle = createRow(_columnsNames);
-    std::string lineSeparator = createRow(std::vector<std::string>(_columnsCount, std::string(_columnWidth, '-')));
-
-    // push rows to the rows vector as table column names and line separator
-    _rows.push_back(menuTitle);
-    _rows.push_back(lineSeparator);
-
-    // create following table records
-    for(const auto& row : _rowsValues)
-    {
-        std::string menuItem = createRow(row);
-        _rows.push_back(menuItem);
-    }
-
-    // ncurses menu requires that menu item list is closed with null item
-    _rows.push_back(_nullRow);
-    _rowsCount = _rows.size();
-
-    // add columns names, line separator and null row to rows values vector
-    _rowsValues.insert(_rowsValues.begin(), std::vector<std::string>(_columnsCount, std::string(_columnWidth, '-')));
-    _rowsValues.insert(_rowsValues.begin(), _columnsNames);
-    _rowsValues.push_back(std::vector<std::string>(1, _nullRow));
-}
-
-uint32_t Graphics::calculateWindowWidth()
+uint32_t Graphics::calculateWindowsWidth()
 {
     return COLS - 2*_horizontalPadding;
 }
 
-uint32_t Graphics::calculateWindowHeight()
+uint32_t Graphics::calculateBufferHeight()
 {
-    return LINES - _topPadding - _bottomPadding;
+    return ((LINES - _topPadding - _bottomPadding) * 0.8) - _spaceSizeBetweenBufferAndLog;
 }
 
-uint32_t Graphics::calculateColumnWidth()
+uint32_t Graphics::calculateLogHeight()
 {
-    return ((calculateWindowWidth() - 1) - (_columnsCount - 1)) / _columnsCount;
-}
-
-void Graphics::initMenuItems()
-{
-    // this method creates actual menu items from created rows
-    _menuItems = new ITEM*[_rows.size()];
-    for(uint32_t rowId = 0; rowId < _rows.size() - 1; ++rowId)
-    {
-        _menuItems[rowId] = new_item(_rows[rowId].c_str(), _rows[rowId].c_str());
-    }
-
-    // add null item at the end
-    _menuItems[_rows.size() - 1] = new_item(_rows.rbegin()->c_str(), _rows.rbegin()->c_str());
+    return (LINES - _topPadding - _bottomPadding) * 0.2;
 }
 
 void Graphics::init()
@@ -154,24 +101,24 @@ void Graphics::init()
     // give keypad control to the main screen
     keypad(stdscr, true);
 
-    _columnWidth = calculateColumnWidth();
-    uint32_t windowHeight = calculateWindowHeight();
-    uint32_t windowWidth = calculateWindowWidth();
-    uint32_t menuHeight = calculateWindowHeight() - 2;
-    uint32_t menuWidth = calculateWindowWidth() - 2;
-
-    initMenuItems();
+    uint32_t bufferHeight = calculateBufferHeight();
+    uint32_t logHeight = calculateLogHeight();
+    uint32_t windowsWidth = calculateWindowsWidth();
+    uint32_t menuHeight = logHeight - 2;
+    uint32_t menuWidth = windowsWidth - 2;
+    _bufferAllocationOffset = bufferHeight / _bufferCapacity;
 
     // allocate memory for parent window and its sibling menu
     _menu = new_menu(_menuItems);
-    _window = newwin(windowHeight, windowWidth, _topPadding, _horizontalPadding);
-    keypad(_window, true);
+    _bufferWindow = newwin(bufferHeight, windowsWidth, _topPadding, _horizontalPadding);
+    _logWindow = newwin(logHeight, windowsWidth, _topPadding + bufferHeight + _spaceSizeBetweenBufferAndLog, _horizontalPadding);
+    keypad(_logWindow, true);
 
     // associate menu with window
-    set_menu_win(_menu, _window);
+    set_menu_win(_menu, _logWindow);
 
     // create sub window for menu
-    set_menu_sub(_menu, derwin(_window, menuHeight, menuWidth, 1, 1));
+    set_menu_sub(_menu, derwin(_logWindow, menuHeight, menuWidth, 1, 1));
 
     // create sub window for menu
     set_menu_format(_menu, menuHeight, 1);
@@ -180,36 +127,35 @@ void Graphics::init()
     set_menu_mark(_menu, "");
 
     // draw simple box sround window
-    box(_window, 0, 0);
+    box(_logWindow, 0, 0);
+    box(_bufferWindow, 0, 0);
 
     // print heading and user tips
     mvprintw(0, _horizontalPadding, "%s", "Author: Wolanski Grzegorz");
-    mvprintw(_topPadding - 1, _horizontalPadding + 1, "%s", "DINING TABLE STATE");
-    mvprintw(_topPadding + windowHeight, _horizontalPadding, "%s", "Q - exit program");
+    mvprintw(_topPadding - 1, _horizontalPadding + 1, "%s - %d/%d", "Buffer", _bufferAllocation, _bufferCapacity);
+    mvprintw(_topPadding + bufferHeight + _spaceSizeBetweenBufferAndLog - 1, _horizontalPadding + 1, "%s", "Actions log");
+    mvprintw(_topPadding + bufferHeight + logHeight + 2, _horizontalPadding, "%s", "Q - exit program");
     refresh();
 
     // generate menu with items in the memory of the window
     post_menu(_menu);
-    wrefresh(_window);
+    wrefresh(_bufferWindow);
+    wrefresh(_logWindow);
     refresh();
 }
 
 void Graphics::refreshMenu()
 {
-    // save current selection so screen will not revert
-    // to the top after update
-    ITEM* currentItem = _menu->curitem;
-
     unpost_menu(_menu);
     set_menu_items(_menu, _menuItems);
-    set_current_item(_menu, currentItem);
     post_menu(_menu);
-    wrefresh(_window);
+    wrefresh(_logWindow);
 }
 
 void Graphics::display()
 {
     int32_t option;
+    uint32_t id = 0;
     bool quit = false;
 
     while(!quit && (option = getch()))
@@ -234,6 +180,18 @@ void Graphics::display()
                 // scroll to previous page
                 menu_driver(_menu, REQ_SCR_UPAGE);
                 break;
+            case 'a':
+                pushNewEventToLog("Producer" + std::to_string(id++) + " added resource to the buffer");
+                break;
+            case 's':
+                pushNewEventToLog("Consumer" + std::to_string(id++) + " took resource from the buffer");
+                break;
+            case 'd':
+                pushNewEventToLog("Producer" + std::to_string(id++) + " stopped. Buffer is full");
+                break;
+            case 'f':
+                pushNewEventToLog("Consumer" + std::to_string(id++) + " stopped. Buffer is empty");
+                break;
             case 'q':
                 quit = true;
                 break;
@@ -241,35 +199,24 @@ void Graphics::display()
                 break;
         }
 
-        wrefresh(_window);
+        wrefresh(_logWindow);
     }
 }
 
-void Graphics::updateRow(uint32_t philosopherIndex,
-                         uint32_t rightForkIndex, const std::vector<std::string>& philosopherRowValues,
-                                                  const std::pair<std::string, std::string>& rightForkOwnerAndState)
+void Graphics::pushNewEventToLog(const std::string& event)
 {
-    std::lock_guard<std::mutex> lock(mutex);
+    _logger.log(event, "");
+    //std::lock_guard<std::mutex> lock(mutex);
 
-    // align indexes to menu items indexing
-    philosopherIndex += _baseMenuItemId;
-    rightForkIndex += _baseMenuItemId;
+    shiftAndExtendMenuItems();
+    _events.insert(_events.begin(), event);
+    _menuItems[0] = new_item(_events.front().c_str(), "");
+    _rowsCount++;
 
-    // update table row with right fork of corresponding philosopher that is being updated
-    _rowsValues[rightForkIndex][_rowsForkOwnerIndex] = rightForkOwnerAndState.first;
-    _rowsValues[rightForkIndex][_rowsForkStateIndex] = rightForkOwnerAndState.second;
-
-    // create new rows from given values
-    std::string updatedPhilosopherRow = createRow(philosopherRowValues);
-    std::string updatedRightForkRow = createRow(_rowsValues[rightForkIndex]);
-
-    // overwrite rows at given indexes
-    _rowsValues[philosopherIndex] = philosopherRowValues;
-    _rows[philosopherIndex] = updatedPhilosopherRow;
-    _rows[rightForkIndex] = updatedRightForkRow;
-    _menuItems[philosopherIndex] = new_item(_rows[philosopherIndex].c_str(), _rows[philosopherIndex].c_str());
-    _menuItems[rightForkIndex] = new_item(_rows[rightForkIndex].c_str(), _rows[rightForkIndex].c_str());
-
-    // update menu items
     refreshMenu();
+}
+
+void Graphics::incrementBufferAllocation()
+{
+
 }

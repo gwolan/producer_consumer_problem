@@ -3,49 +3,47 @@
 #include <menu.h>
 #include <ncurses.h>
 #include <cstdint>
-#include <memory>
 #include <vector>
 #include <mutex>
+#include <string>
+#include <Miscellanous/Logger.hpp>
 
 class Graphics
 {
     public:
-    Graphics(const std::vector<std::string>& columnsNames,
-             const std::vector<std::vector<std::string>>& rowsValues);
+    Graphics(uint32_t bufferCapacity);
     ~Graphics();
 
     void display();
-    void updateRow(uint32_t philosopherIndex,
-                   uint32_t rightForkIndex, const std::vector<std::string>& philosopherRowValues,
-                                            const std::pair<std::string, std::string>& rightForkOwnerAndState);
+    void pushNewEventToLog(const std::string& event);
+    void incrementBufferAllocation();
 
 
     private:
-    std::string createRow(const std::vector<std::string>& columnsValues);
-    void createRows();
-    uint32_t calculateWindowWidth();
-    uint32_t calculateWindowHeight();
-    uint32_t calculateColumnWidth();
-    void initMenuItems();
+    void shiftAndExtendMenuItems();
+    uint32_t calculateWindowsWidth();
+    uint32_t calculateBufferHeight();
+    uint32_t calculateLogHeight();
     void init();
     void refreshMenu();
 
-    WINDOW* _window;
+    WINDOW* _bufferWindow;
+    WINDOW* _logWindow;
     MENU* _menu;
     ITEM** _menuItems;
 
     std::mutex mutex;
-    std::vector<std::string> _columnsNames;
-    std::vector<std::string> _rows;
-    std::vector<std::vector<std::string>> _rowsValues;
+    std::vector<std::string> _events;
     const std::string _nullRow;
     const uint32_t _topPadding;
     const uint32_t _bottomPadding;
     const uint32_t _horizontalPadding;
-    uint32_t _columnsCount;
-    uint32_t _columnWidth;
+    const uint32_t _spaceSizeBetweenBufferAndLog;
+    const uint32_t _bufferCapacity;
+    uint32_t _bufferAllocationOffset;
+    uint32_t _bufferAllocation;
+    uint32_t _rowsCapacity;
     uint32_t _rowsCount;
-    const uint32_t _baseMenuItemId;
-    const uint32_t _rowsForkStateIndex;
-    const uint32_t _rowsForkOwnerIndex;
+
+    Logger _logger;
 };
