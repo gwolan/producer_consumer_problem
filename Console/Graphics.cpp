@@ -6,22 +6,32 @@ Graphics::Graphics(uint32_t bufferCapacity)
     : _bufferWindow(nullptr)
     , _logWindow(nullptr)
     , _menu(nullptr)
-    , _menuItems(new ITEM*[100])
+    , _menuItems(new ITEM*[20])
     , _events()
     , _nullRow("\0")
     , _topPadding(4)
     , _bottomPadding(4)
-    , _horizontalPadding(50)
+    , _horizontalPaddingForBufferAndLog(50)
     , _spaceSizeBetweenBufferAndLog(3)
+    , _bufferElementsAmount(0)
+    , _bufferMaxElementsAlreadyDrawn(0)
+    , _bufferMinElementsAlreadyDrawn(0)
     , _bufferCapacity(bufferCapacity)
-    , _bufferAllocationOffset(0)
-    , _bufferAllocation(0)
-    , _rowsCapacity(100)
-    , _rowsCount(0)
+    , _logRecords(0)
+    , _logsCapacity(20)
     , _logger("Console")
 {
     // set COLS and LINES variables
     initscr();
+
+    // initialize rest of the variables that are dependent on main window size
+    _bufferWindowHeight = calculateBufferHeight();
+    _logHeight = calculateLogHeight();
+    _windowsWidth = calculateWindowsWidth();
+    _menuHeight = _logHeight - 2;
+    _menuWidth = _windowsWidth - 2;
+    _bufferCurrentRowIndex = _bufferWindowHeight - 1;
+    calculateBufferWindowAllocationOffsets();
 
     init();
     pushNewEventToLog(_nullRow);
@@ -37,9 +47,9 @@ Graphics::~Graphics()
     free_menu(_menu);
 
     // deallocate menu items
-    for(uint32_t rowId = 0; rowId < _rowsCount; ++rowId)
+    for(uint32_t logId = 0; logId < _logRecords; ++logId)
     {
-        free_item(_menuItems[rowId]);
+        free_item(_menuItems[logId]);
     }
 
     // deallocate window
@@ -55,29 +65,43 @@ Graphics::~Graphics()
 
 void Graphics::shiftAndExtendMenuItems()
 {
-    if(_rowsCount == _rowsCapacity)
+    if(_logRecords == _logsCapacity)
     {
-        ITEM** newMenuItems = new ITEM*[2*_rowsCapacity];
-
-        for(uint32_t rowId = 0; rowId < _rowsCount; ++rowId)
+        free_item(_menuItems[_logRecords - 1]);
+        for(uint32_t logId = _logRecords - 1; logId > 0; --logId)
         {
-            newMenuItems[rowId + 1] = _menuItems[rowId];
+            _menuItems[logId] = _menuItems[logId - 1];
         }
-
-        _menuItems = newMenuItems;
     }
     else
     {
-        for(uint32_t rowId = _rowsCount; rowId > 0; --rowId)
+        for(uint32_t logId = _logRecords; logId > 0; --logId)
         {
-            _menuItems[rowId] = _menuItems[rowId - 1];
+            _menuItems[logId] = _menuItems[logId - 1];
         }
+    }
+}
+
+void Graphics::calculateBufferWindowAllocationOffsets()
+{
+    uint32_t bufferWindowAvailableSpace = _bufferWindowHeight - 2;
+    _bufferMinElementsRequiredToDrawLine = _bufferCapacity / bufferWindowAvailableSpace;
+    _bufferAllowedMaxElementsToDraw = _bufferCapacity % bufferWindowAvailableSpace;
+    _bufferAllowedMinElementsToDraw = bufferWindowAvailableSpace - _bufferAllowedMaxElementsToDraw;
+
+    if(_bufferAllowedMaxElementsToDraw == 0)
+    {
+        _bufferMaxElementsRequiredToDrawLine = _bufferMinElementsRequiredToDrawLine;
+    }
+    else
+    {
+        _bufferMaxElementsRequiredToDrawLine = _bufferMinElementsRequiredToDrawLine + 1;
     }
 }
 
 uint32_t Graphics::calculateWindowsWidth()
 {
-    return COLS - 2*_horizontalPadding;
+    return COLS - 2*_horizontalPaddingForBufferAndLog;
 }
 
 uint32_t Graphics::calculateBufferHeight()
@@ -101,27 +125,20 @@ void Graphics::init()
     // give keypad control to the main screen
     keypad(stdscr, true);
 
-    uint32_t bufferHeight = calculateBufferHeight();
-    uint32_t logHeight = calculateLogHeight();
-    uint32_t windowsWidth = calculateWindowsWidth();
-    uint32_t menuHeight = logHeight - 2;
-    uint32_t menuWidth = windowsWidth - 2;
-    _bufferAllocationOffset = bufferHeight / _bufferCapacity;
-
     // allocate memory for parent window and its sibling menu
     _menu = new_menu(_menuItems);
-    _bufferWindow = newwin(bufferHeight, windowsWidth, _topPadding, _horizontalPadding);
-    _logWindow = newwin(logHeight, windowsWidth, _topPadding + bufferHeight + _spaceSizeBetweenBufferAndLog, _horizontalPadding);
+    _bufferWindow = newwin(_bufferWindowHeight, _windowsWidth, _topPadding, _horizontalPaddingForBufferAndLog);
+    _logWindow = newwin(_logHeight, _windowsWidth, _topPadding + _bufferWindowHeight + _spaceSizeBetweenBufferAndLog, _horizontalPaddingForBufferAndLog);
     keypad(_logWindow, true);
 
     // associate menu with window
     set_menu_win(_menu, _logWindow);
 
     // create sub window for menu
-    set_menu_sub(_menu, derwin(_logWindow, menuHeight, menuWidth, 1, 1));
+    set_menu_sub(_menu, derwin(_logWindow, _menuHeight, _menuWidth, 1, 1));
 
     // create sub window for menu
-    set_menu_format(_menu, menuHeight, 1);
+    set_menu_format(_menu, _menuHeight, 1);
 
     // hide marking char for current menu selection
     set_menu_mark(_menu, "");
@@ -131,10 +148,10 @@ void Graphics::init()
     box(_bufferWindow, 0, 0);
 
     // print heading and user tips
-    mvprintw(0, _horizontalPadding, "%s", "Author: Wolanski Grzegorz");
-    mvprintw(_topPadding - 1, _horizontalPadding + 1, "%s - %d/%d", "Buffer", _bufferAllocation, _bufferCapacity);
-    mvprintw(_topPadding + bufferHeight + _spaceSizeBetweenBufferAndLog - 1, _horizontalPadding + 1, "%s", "Actions log");
-    mvprintw(_topPadding + bufferHeight + logHeight + 2, _horizontalPadding, "%s", "Q - exit program");
+    mvprintw(0, _horizontalPaddingForBufferAndLog, "%s", "Author: Wolanski Grzegorz");
+    mvprintw(_topPadding - 1, _horizontalPaddingForBufferAndLog + 1, "%s - %d/%d", "Buffer", _bufferElementsAmount, _bufferCapacity);
+    mvprintw(_topPadding + _bufferWindowHeight + _spaceSizeBetweenBufferAndLog - 1, _horizontalPaddingForBufferAndLog + 1, "%s", "Actions log");
+    mvprintw(_topPadding + _bufferWindowHeight + _logHeight + 2, _horizontalPaddingForBufferAndLog, "%s", "Q - exit program");
     refresh();
 
     // generate menu with items in the memory of the window
@@ -160,8 +177,6 @@ void Graphics::display()
 
     while(!quit && (option = getch()))
     {
-        std::lock_guard<std::mutex> lock(mutex);
-
         switch(option)
         {
             case KEY_DOWN:
@@ -181,16 +196,12 @@ void Graphics::display()
                 menu_driver(_menu, REQ_SCR_UPAGE);
                 break;
             case 'a':
+                incrementBufferAllocation();
                 pushNewEventToLog("Producer" + std::to_string(id++) + " added resource to the buffer");
                 break;
             case 's':
+                decrementBufferAllocation();
                 pushNewEventToLog("Consumer" + std::to_string(id++) + " took resource from the buffer");
-                break;
-            case 'd':
-                pushNewEventToLog("Producer" + std::to_string(id++) + " stopped. Buffer is full");
-                break;
-            case 'f':
-                pushNewEventToLog("Consumer" + std::to_string(id++) + " stopped. Buffer is empty");
                 break;
             case 'q':
                 quit = true;
@@ -203,20 +214,82 @@ void Graphics::display()
     }
 }
 
+void Graphics::updateBufferStatus()
+{
+    mvprintw(_topPadding - 1, _horizontalPaddingForBufferAndLog + 1, "%s - %d/%d                               ", "Buffer", _bufferElementsAmount, _bufferCapacity);
+    refresh();
+}
+
 void Graphics::pushNewEventToLog(const std::string& event)
 {
     _logger.log(event, "");
-    //std::lock_guard<std::mutex> lock(mutex);
 
     shiftAndExtendMenuItems();
     _events.insert(_events.begin(), event);
     _menuItems[0] = new_item(_events.front().c_str(), "");
-    _rowsCount++;
+    _logRecords++;
 
     refreshMenu();
 }
 
+void Graphics::raiseAllocationLevel()
+{
+    wattron(_bufferWindow, A_REVERSE);
+    mvwhline(_bufferWindow, --_bufferCurrentRowIndex, 1, ' ', _windowsWidth - 2);
+    wattroff(_bufferWindow, A_REVERSE);
+
+    wrefresh(_bufferWindow);
+}
+
+void Graphics::decreaseAllocationLevel()
+{
+    mvwhline(_bufferWindow, _bufferCurrentRowIndex++, 1, ' ', _windowsWidth - 2);
+
+    wrefresh(_bufferWindow);
+}
+
 void Graphics::incrementBufferAllocation()
 {
+    _bufferElementsAmount++;
+    updateBufferStatus();
 
+    if(_bufferMaxElementsAlreadyDrawn < _bufferAllowedMaxElementsToDraw)
+    {
+        if(_bufferElementsAmount % _bufferMaxElementsRequiredToDrawLine == 0)
+        {
+            _bufferMaxElementsAlreadyDrawn++;
+            raiseAllocationLevel();
+        }
+    }
+    else
+    {
+        if(_bufferElementsAmount % _bufferMinElementsRequiredToDrawLine == 0)
+        {
+            _bufferMinElementsAlreadyDrawn++;
+            raiseAllocationLevel();
+        }
+    }
+}
+
+void Graphics::decrementBufferAllocation()
+{
+    _bufferElementsAmount--;
+    updateBufferStatus();
+
+    if(_bufferMinElementsAlreadyDrawn != 0)
+    {
+        if(_bufferElementsAmount % _bufferMinElementsRequiredToDrawLine == 0)
+        {
+            _bufferMinElementsAlreadyDrawn--;
+            decreaseAllocationLevel();
+        }
+    }
+    else
+    {
+        if(_bufferElementsAmount % _bufferMaxElementsRequiredToDrawLine == 0)
+        {
+            _bufferMaxElementsAlreadyDrawn--;
+            decreaseAllocationLevel();
+        }
+    }
 }
