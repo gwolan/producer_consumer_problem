@@ -15,12 +15,9 @@ Consumer::~Consumer()
 {
     if(_consumer.joinable())
     {
-        try
-        {
-            _consumer.detach();
-        }
-        catch(std::system_error& se) { }
+        _consumer.detach();
     }
+
     stop();
 }
 
@@ -33,6 +30,8 @@ void Consumer::startConsuming()
         std::this_thread::sleep_for(std::chrono::milliseconds(_timerDice.rollUnsignedInt()));
         _buffer.getElementFromBuffer(_consumerName);
     }
+
+    _stoppedPromise.set_value(true);
 }
 
 void Consumer::stop()

@@ -15,11 +15,7 @@ Producer::~Producer()
 {
     if(_producer.joinable())
     {
-        try
-        {
-            _producer.detach();
-        }
-        catch(std::system_error& se) { }
+        _producer.detach();
     }
 
     stop();

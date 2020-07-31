@@ -2,7 +2,7 @@
 #include <Console/Graphics.hpp>
 
 
-Graphics::Graphics(uint32_t bufferCapacity)
+Graphics::Graphics(uint32_t bufferCapacity, uint32_t producersCount, uint32_t consumersCount)
     : _bufferWindow(nullptr)
     , _logWindow(nullptr)
     , _menu(nullptr)
@@ -13,6 +13,8 @@ Graphics::Graphics(uint32_t bufferCapacity)
     , _bottomPadding(4)
     , _horizontalPaddingForBufferAndLog(50)
     , _spaceSizeBetweenBufferAndLog(3)
+    , _producersCount(producersCount)
+    , _consumersCount(consumersCount)
     , _bufferElementsAmount(0)
     , _bufferMaxElementsAlreadyDrawn(0)
     , _bufferMinElementsAlreadyDrawn(0)
@@ -43,6 +45,8 @@ Graphics::~Graphics()
 {
     wrefresh(_bufferWindow);
     wrefresh(_logWindow);
+    wrefresh(_producersWindow);
+    wrefresh(_consumersWindow);
 
     // deallocate menu
     unpost_menu(_menu);
@@ -55,11 +59,15 @@ Graphics::~Graphics()
     }
 
     // deallocate window
-    wborder(_logWindow, ' ', ' ', ' ',' ',' ',' ',' ',' ');
     wborder(_bufferWindow, ' ', ' ', ' ',' ',' ',' ',' ',' ');
+    wborder(_logWindow, ' ', ' ', ' ',' ',' ',' ',' ',' ');
+    wborder(_producersWindow, ' ', ' ', ' ',' ',' ',' ',' ',' ');
+    wborder(_consumersWindow, ' ', ' ', ' ',' ',' ',' ',' ',' ');
     refresh();
-    delwin(_logWindow);
     delwin(_bufferWindow);
+    delwin(_logWindow);
+    delwin(_producersWindow);
+    delwin(_consumersWindow);
 
     // stop ncurses
     endwin();
@@ -131,6 +139,8 @@ void Graphics::init()
     _menu = new_menu(_menuItems);
     _bufferWindow = newwin(_bufferWindowHeight, _windowsWidth, _topPadding, _horizontalPaddingForBufferAndLog);
     _logWindow = newwin(_logHeight, _windowsWidth, _topPadding + _bufferWindowHeight + _spaceSizeBetweenBufferAndLog, _horizontalPaddingForBufferAndLog);
+    _producersWindow = newwin(_bufferWindowHeight / 2, _horizontalPaddingForBufferAndLog / 2, 2*_topPadding, _horizontalPaddingForBufferAndLog / 4);
+    _consumersWindow = newwin(_bufferWindowHeight / 2, _horizontalPaddingForBufferAndLog / 2, 2*_topPadding, _horizontalPaddingForBufferAndLog + _windowsWidth + _horizontalPaddingForBufferAndLog / 4);
     keypad(_logWindow, true);
 
     // associate menu with window
@@ -148,16 +158,25 @@ void Graphics::init()
     // draw simple box sround window
     box(_logWindow, 0, 0);
     box(_bufferWindow, 0, 0);
+    box(_producersWindow, 0, 0);
+    box(_consumersWindow, 0, 0);
 
     // print heading and user tips
-    mvprintw(0, _horizontalPaddingForBufferAndLog, "%s", "Author: Wolanski Grzegorz");
+    mvprintw(0, _horizontalPaddingForBufferAndLog / 4, "%s", "Author: Wolanski Grzegorz");
     mvprintw(_topPadding - 1, _horizontalPaddingForBufferAndLog + 1, "%s - %d/%d", "Buffer", _bufferElementsAmount, _bufferCapacity);
     mvprintw(_topPadding + _bufferWindowHeight + _spaceSizeBetweenBufferAndLog - 1, _horizontalPaddingForBufferAndLog + 1, "%s", "Actions log");
-    mvprintw(_topPadding + _bufferWindowHeight + _logHeight + 2, _horizontalPaddingForBufferAndLog, "%s", "Q - exit program");
+    mvprintw(_topPadding + _bufferWindowHeight + _spaceSizeBetweenBufferAndLog + _logHeight + 1, _horizontalPaddingForBufferAndLog / 4, "%s", "Tips:");
+    mvprintw(_topPadding + _bufferWindowHeight + _spaceSizeBetweenBufferAndLog + _logHeight + 2, _horizontalPaddingForBufferAndLog / 4, "%s", "q - exit program");
+    mvprintw(_topPadding + _bufferWindowHeight + _spaceSizeBetweenBufferAndLog + _logHeight + 3, _horizontalPaddingForBufferAndLog / 4, "%s", "a/z - add/remove Producer");
+    mvprintw(_topPadding + _bufferWindowHeight + _spaceSizeBetweenBufferAndLog + _logHeight + 4, _horizontalPaddingForBufferAndLog / 4, "%s", "s/x - add/remove Consumer");
     refresh();
 
     // generate menu with items in the memory of the window
     post_menu(_menu);
+
+    updateProducersNumber(_producersCount);
+    updateConsumersNumber(_consumersCount);
+
     wrefresh(_bufferWindow);
     wrefresh(_logWindow);
     refresh();
@@ -317,4 +336,16 @@ void Graphics::handleGetOperation(const std::string& actor, const std::string& e
 {
     pushNewEventToLog(actor, event);
     decrementBufferAllocation();
+}
+
+void Graphics::updateProducersNumber(uint32_t producersCount)
+{
+    mvwprintw(_producersWindow, _bufferWindowHeight / 4, _horizontalPaddingForBufferAndLog / 8, "%s %d    ", "Producers:", producersCount);
+    wrefresh(_producersWindow);
+}
+
+void Graphics::updateConsumersNumber(uint32_t consumersCount)
+{
+    mvwprintw(_consumersWindow, _bufferWindowHeight / 4, _horizontalPaddingForBufferAndLog / 8, "%s %d    ", "Consumers:", consumersCount);
+    wrefresh(_consumersWindow);
 }

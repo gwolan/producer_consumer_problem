@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <mutex>
 #include <string>
+#include <thread>
 #include <condition_variable>
 #include <Console/Graphics.hpp>
 

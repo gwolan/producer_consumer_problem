@@ -10,13 +10,15 @@
 class Graphics
 {
     public:
-    Graphics(uint32_t bufferCapacity);
+    Graphics(uint32_t bufferCapacity, uint32_t producersCount, uint32_t consumersCount);
     ~Graphics();
 
     void handleUserInput(int32_t option);
     void handlePutOperation(const std::string& actor, const std::string& event);
     void handleGetOperation(const std::string& actor, const std::string& event);
     void pushNewEventToLog(const std::string& actor, const std::string& event);
+    void updateProducersNumber(uint32_t producersCount);
+    void updateConsumersNumber(uint32_t consumersCount);
 
 
     private:
@@ -37,6 +39,8 @@ class Graphics
 
     WINDOW* _bufferWindow;
     WINDOW* _logWindow;
+    WINDOW* _producersWindow;
+    WINDOW* _consumersWindow;
     MENU* _menu;
     ITEM** _menuItems;
 
@@ -47,6 +51,8 @@ class Graphics
     const uint32_t _horizontalPaddingForBufferAndLog;
     const uint32_t _spaceSizeBetweenBufferAndLog;
     uint32_t _windowsWidth;
+    uint32_t _producersCount;
+    uint32_t _consumersCount;
 
     uint32_t _bufferWindowHeight;
     uint32_t _bufferElementsAmount;
