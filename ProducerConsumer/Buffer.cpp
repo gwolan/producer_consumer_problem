@@ -7,36 +7,44 @@ Buffer::Buffer(uint32_t bufferCapacity, Graphics& graphics)
     , _graphics(graphics)
 { }
 
-Buffer::~Buffer()
-{ }
-
 bool Buffer::putElementIntoBuffer(const std::string& producerName)
 {
-    std::lock_guard<std::mutex> lock(mutex);
+    std::unique_lock<std::mutex> lock(_mutex);
 
     if(!isBufferFull())
     {
         _bufferAllocation++;
         _graphics.handlePutOperation(producerName, "puts value into buffer");
+        _consumerStopper.notify_all();
         return true;
     }
+    else
+    {
+        _graphics.pushNewEventToLog(producerName, "buffer is full. Value not delivered");
+        _producerStopper.wait(lock, [this]{ return !this->isBufferFull(); });
+        return false;
+    }
 
-    _graphics.pushNewEventToLog(producerName, "buffer is full. Value not delivered");
-    return false;
 }
 
 bool Buffer::getElementFromBuffer(const std::string& consumerName)
 {
-    std::lock_guard<std::mutex> lock(mutex);
+    std::unique_lock<std::mutex> lock(_mutex);
 
     if(!isBufferEmpty())
     {
         _bufferAllocation--;
         _graphics.handleGetOperation(consumerName, "gets value from buffer");
+        _producerStopper.notify_all();
         return true;
     }
+    else
+    {
+        _graphics.pushNewEventToLog(consumerName, "buffer is empty. Value not taken");
+        _consumerStopper.wait(lock, [this]{ return !this->isBufferEmpty(); });
+        return false;
+    }
 
-    _graphics.pushNewEventToLog(consumerName, "buffer is empty. Value not taken");
     return false;
 }
 

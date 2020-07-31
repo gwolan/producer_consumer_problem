@@ -9,62 +9,47 @@ ProducerConsumer::ProducerConsumer(uint32_t bufferCapacity)
     , _buffer(_bufferCapacity, _graphics)
 { }
 
-ProducerConsumer::~ProducerConsumer()
-{ }
-
 void ProducerConsumer::createProducer(uint32_t producerId)
 {
-    _producers.emplace_back(_buffer, "Producer" + std::to_string(producerId));
+    _producers.emplace_back(_buffer, "Producer" + std::to_string(producerId), _startingLine);
+    //_graphics.pushNewEventToLog("Producer" + std::to_string(producerId), "was created");
 }
 
 void ProducerConsumer::createConsumer(uint32_t consumerId)
 {
-    _consumers.emplace_back(_buffer, "Consumer" + std::to_string(consumerId));
+    _consumers.emplace_back(_buffer, "Consumer" + std::to_string(consumerId), _startingLine);
+    //_graphics.pushNewEventToLog("Consumer" + std::to_string(consumerId), "was created");
+}
+
+void ProducerConsumer::destroyProducer()
+{
+    _producers.pop_back();
+    //_graphics.pushNewEventToLog("Producer" + std::to_string(_producers.size()), "was destroyed");
+}
+
+void ProducerConsumer::destroyConsumer()
+{
+    _consumers.pop_back();
+    //_graphics.pushNewEventToLog("Consumer" + std::to_string(_consumers.size()), "was destroyed");
 }
 
 void ProducerConsumer::createActors()
 {
-    bool keepCreating = (_producers.size() < _defaultProducersCount) || (_consumers.size() < _defaultConsumersCount);
-    bool createProducerFirst = true;
-
-    while(keepCreating)
+    for(uint32_t actorId = 0; actorId < _defaultProducersCount; ++actorId)
     {
-        if(createProducerFirst)
-        {
-            if(_producers.size() < _defaultProducersCount)
-            {
-                createProducer(_producers.size());
-            }
+        createProducer(actorId);
+    }
 
-            if(_consumers.size() < _defaultConsumersCount)
-            {
-                createConsumer(_consumers.size());
-            }
-
-            createProducerFirst = false;
-        }
-        else
-        {
-            if(_consumers.size() < _defaultConsumersCount)
-            {
-                createConsumer(_consumers.size());
-            }
-
-            if(_producers.size() < _defaultProducersCount)
-            {
-                createProducer(_producers.size());
-            }
-
-            createProducerFirst = true;
-        }
-
-        keepCreating = (_producers.size() < _defaultProducersCount) || (_consumers.size() < _defaultConsumersCount);
+    for(uint32_t actorId = 0; actorId < _defaultConsumersCount; ++actorId)
+    {
+        createConsumer(actorId);
     }
 }
 
 void ProducerConsumer::run()
 {
     createActors();
+    _startingLine.start();
 
     int32_t option;
     bool quit = false;
@@ -72,6 +57,20 @@ void ProducerConsumer::run()
     {
         switch(option)
         {
+            case 'a':
+                createProducer(_producers.size());
+                _startingLine.start();
+                break;
+            case 'z':
+                destroyProducer();
+                break;
+            case 's':
+                createConsumer(_consumers.size());
+                _startingLine.start();
+                break;
+            case 'x':
+                destroyConsumer();
+                break;
             case 'q':
                 quit = true;
                 break;

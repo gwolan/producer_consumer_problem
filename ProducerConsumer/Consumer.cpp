@@ -1,8 +1,9 @@
 #include <ProducerConsumer/Consumer.hpp>
 
 
-Consumer::Consumer(Buffer& buffer, const std::string& name)
+Consumer::Consumer(Buffer& buffer, const std::string& name, StartingLine& startingLine)
     : _buffer(buffer)
+    , _startingLine(startingLine)
     , _consumer(&Consumer::startConsuming, this)
     , _consume(true)
     , _timerDice(1500, 3000)
@@ -20,6 +21,8 @@ Consumer::~Consumer()
 
 void Consumer::startConsuming()
 {
+    _startingLine.wait();
+
     while(_consume)
     {
         std::this_thread::sleep_for(std::chrono::milliseconds(_timerDice.rollUnsignedInt()));

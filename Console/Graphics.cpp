@@ -34,9 +34,9 @@ Graphics::Graphics(uint32_t bufferCapacity)
     _bufferCurrentRowIndex = _bufferWindowHeight - 1;
     calculateBufferWindowAllocationOffsets();
 
-    init();
     _events.push_back(_nullRow);
     _menuItems[0] = new_item(_events.front().c_str(), "");
+    init();
 }
 
 Graphics::~Graphics()

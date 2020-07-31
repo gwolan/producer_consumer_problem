@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <mutex>
 #include <string>
+#include <condition_variable>
 #include <Console/Graphics.hpp>
 
 
@@ -10,7 +11,7 @@ class Buffer
 {
     public:
     Buffer(uint32_t bufferCapacity, Graphics& graphics);
-    ~Buffer();
+    ~Buffer() = default;
 
     bool putElementIntoBuffer(const std::string& producerName);
     bool getElementFromBuffer(const std::string& consumerName);
@@ -23,5 +24,7 @@ class Buffer
     const uint32_t _bufferCapacity;
     uint32_t _bufferAllocation;
     Graphics& _graphics;
-    std::mutex mutex;
+    std::mutex _mutex;
+    std::condition_variable _producerStopper;
+    std::condition_variable _consumerStopper;
 };
