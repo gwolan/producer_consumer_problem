@@ -6,17 +6,22 @@ Consumer::Consumer(Buffer& buffer, const std::string& name, StartingLine& starti
     , _startingLine(startingLine)
     , _consumer(&Consumer::startConsuming, this)
     , _consume(true)
+    , _stoppedPromise()
     , _timerDice(1500, 3000)
     , _consumerName(name)
 { }
 
 Consumer::~Consumer()
 {
-    stop();
     if(_consumer.joinable())
     {
-        _consumer.detach();
+        try
+        {
+            _consumer.detach();
+        }
+        catch(std::system_error& se) { }
     }
+    stop();
 }
 
 void Consumer::startConsuming()
@@ -33,4 +38,9 @@ void Consumer::startConsuming()
 void Consumer::stop()
 {
     _consume = false;
+}
+
+std::future<bool> Consumer::getFutureStopped()
+{
+    return _stoppedPromise.get_future();
 }

@@ -23,13 +23,21 @@ void ProducerConsumer::createConsumer(uint32_t consumerId)
 
 void ProducerConsumer::destroyProducer()
 {
-    _producers.pop_back();
+    _producers.rbegin()->stop();
+    if(_producers.rbegin()->getFutureStopped().get())
+    {
+        _producers.pop_back();
+    }
     //_graphics.pushNewEventToLog("Producer" + std::to_string(_producers.size()), "was destroyed");
 }
 
 void ProducerConsumer::destroyConsumer()
 {
-    _consumers.pop_back();
+    _consumers.rbegin()->stop();
+    if(_consumers.rbegin()->getFutureStopped().get())
+    {
+        _consumers.pop_back();
+    }
     //_graphics.pushNewEventToLog("Consumer" + std::to_string(_consumers.size()), "was destroyed");
 }
 
