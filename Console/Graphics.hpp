@@ -13,7 +13,7 @@ class Graphics
     Graphics(uint32_t bufferCapacity);
     ~Graphics();
 
-    void display();
+    void handleUserInput(int32_t option);
     void handlePutOperation(const std::string& actor, const std::string& event);
     void handleGetOperation(const std::string& actor, const std::string& event);
     void pushNewEventToLog(const std::string& actor, const std::string& event);

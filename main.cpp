@@ -2,7 +2,7 @@
 #include <vector>
 #include <iostream>
 #include <Console/IO.hpp>
-#include <Console/Graphics.hpp>
+#include <ProducerConsumer/ProducerConsumer.hpp>
 
 
 int main(int argc, char* argv[])
@@ -12,8 +12,8 @@ int main(int argc, char* argv[])
     // input argument define number of rows
     if(io.validateArgs((uint32_t)argc, argv))
     {
-        Graphics graphics(io.getInputArgValue());
-        graphics.display();
+        ProducerConsumer producerConsumer(io.getInputArgValue());
+        producerConsumer.run();
     }
     else
     {

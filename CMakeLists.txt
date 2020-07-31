@@ -16,6 +16,7 @@ set(CMAKE_CXX_FLAGS "-O3 -Wall -lncurses -lmenu -static-libgcc -static-libstdc++
 set(SOURCE_DIRECTORIES
         Console/
         Miscellanous/
+        ProducerConsumer/
    )
 
 

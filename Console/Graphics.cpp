@@ -171,47 +171,31 @@ void Graphics::refreshMenu()
     wrefresh(_logWindow);
 }
 
-void Graphics::display()
+void Graphics::handleUserInput(int32_t option)
 {
-    int32_t option;
-    uint32_t id = 0;
-    bool quit = false;
-
-    while(!quit && (option = getch()))
+    switch(option)
     {
-        switch(option)
-        {
-            case KEY_DOWN:
-                // choose lower item
-                menu_driver(_menu, REQ_DOWN_ITEM);
-                break;
-            case KEY_UP:
-                // choose higher item
-                menu_driver(_menu, REQ_UP_ITEM);
-                break;
-            case KEY_NPAGE:
-                // scroll to next page
-                menu_driver(_menu, REQ_SCR_DPAGE);
-                break;
-            case KEY_PPAGE:
-                // scroll to previous page
-                menu_driver(_menu, REQ_SCR_UPAGE);
-                break;
-            case 'a':
-                handlePutOperation("Producer" + std::to_string(id++), "produces resource");
-                break;
-            case 's':
-                handleGetOperation("Consumer" + std::to_string(id++), "consumes resource");
-                break;
-            case 'q':
-                quit = true;
-                break;
-            default:
-                break;
-        }
-
-        wrefresh(_logWindow);
+        case KEY_DOWN:
+            // choose lower item
+            menu_driver(_menu, REQ_DOWN_ITEM);
+            break;
+        case KEY_UP:
+            // choose higher item
+            menu_driver(_menu, REQ_UP_ITEM);
+            break;
+        case KEY_NPAGE:
+            // scroll to next page
+            menu_driver(_menu, REQ_SCR_DPAGE);
+            break;
+        case KEY_PPAGE:
+            // scroll to previous page
+            menu_driver(_menu, REQ_SCR_UPAGE);
+            break;
+        default:
+            break;
     }
+
+    wrefresh(_logWindow);
 }
 
 void Graphics::updateBufferStatus()
