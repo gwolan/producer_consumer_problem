@@ -3,7 +3,7 @@
 
 
 IO::IO()
-    : _inputArgValue(5)
+    : _inputArgValue(30)
 { }
 
 bool IO::validateArgs(uint32_t argsCount, char** argv)

@@ -27,6 +27,8 @@ class Graphics
     void calculateBufferWindowAllocationOffsets();
     void init();
     void refreshMenu();
+    void incrementAddedElementsCounter(uint32_t upperBound);
+    void decrementAddedElementsCounter(uint32_t upperBound);
     void raiseAllocationLevel();
     void decreaseAllocationLevel();
     void updateBufferStatus();
@@ -52,6 +54,7 @@ class Graphics
     uint32_t _bufferMinElementsAlreadyDrawn;
     uint32_t _bufferAllowedMaxElementsToDraw;
     uint32_t _bufferAllowedMinElementsToDraw;
+    uint32_t _bufferAddedElementsCounter;
     uint32_t _bufferCurrentRowIndex;
     const uint32_t _bufferCapacity;
 

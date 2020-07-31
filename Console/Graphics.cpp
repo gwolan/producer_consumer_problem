@@ -16,6 +16,7 @@ Graphics::Graphics(uint32_t bufferCapacity)
     , _bufferElementsAmount(0)
     , _bufferMaxElementsAlreadyDrawn(0)
     , _bufferMinElementsAlreadyDrawn(0)
+    , _bufferAddedElementsCounter(0)
     , _bufferCapacity(bufferCapacity)
     , _logRecords(0)
     , _logsCapacity(20)
@@ -232,6 +233,30 @@ void Graphics::pushNewEventToLog(const std::string& event)
     refreshMenu();
 }
 
+void Graphics::incrementAddedElementsCounter(uint32_t upperBound)
+{
+    if(_bufferAddedElementsCounter >= upperBound)
+    {
+        _bufferAddedElementsCounter = 1;
+    }
+    else
+    {
+        _bufferAddedElementsCounter++;
+    }
+}
+
+void Graphics::decrementAddedElementsCounter(uint32_t upperBound)
+{
+    if(_bufferAddedElementsCounter == 0)
+    {
+        _bufferAddedElementsCounter = upperBound - 1;
+    }
+    else
+    {
+        _bufferAddedElementsCounter--;
+    }
+}
+
 void Graphics::raiseAllocationLevel()
 {
     wattron(_bufferWindow, A_REVERSE);
@@ -255,7 +280,8 @@ void Graphics::incrementBufferAllocation()
 
     if(_bufferMaxElementsAlreadyDrawn < _bufferAllowedMaxElementsToDraw)
     {
-        if(_bufferElementsAmount % _bufferMaxElementsRequiredToDrawLine == 0)
+        incrementAddedElementsCounter(_bufferMaxElementsRequiredToDrawLine);
+        if(_bufferAddedElementsCounter == _bufferMaxElementsRequiredToDrawLine)
         {
             _bufferMaxElementsAlreadyDrawn++;
             raiseAllocationLevel();
@@ -263,7 +289,8 @@ void Graphics::incrementBufferAllocation()
     }
     else
     {
-        if(_bufferElementsAmount % _bufferMinElementsRequiredToDrawLine == 0)
+        incrementAddedElementsCounter(_bufferMinElementsRequiredToDrawLine);
+        if(_bufferAddedElementsCounter == _bufferMinElementsRequiredToDrawLine)
         {
             _bufferMinElementsAlreadyDrawn++;
             raiseAllocationLevel();
@@ -278,7 +305,8 @@ void Graphics::decrementBufferAllocation()
 
     if(_bufferMinElementsAlreadyDrawn != 0)
     {
-        if(_bufferElementsAmount % _bufferMinElementsRequiredToDrawLine == 0)
+        decrementAddedElementsCounter(_bufferMinElementsRequiredToDrawLine);
+        if(_bufferAddedElementsCounter == (_bufferMinElementsRequiredToDrawLine - 1))
         {
             _bufferMinElementsAlreadyDrawn--;
             decreaseAllocationLevel();
@@ -286,7 +314,8 @@ void Graphics::decrementBufferAllocation()
     }
     else
     {
-        if(_bufferElementsAmount % _bufferMaxElementsRequiredToDrawLine == 0)
+        decrementAddedElementsCounter(_bufferMaxElementsRequiredToDrawLine);
+        if(_bufferAddedElementsCounter == (_bufferMaxElementsRequiredToDrawLine - 1))
         {
             _bufferMaxElementsAlreadyDrawn--;
             decreaseAllocationLevel();
