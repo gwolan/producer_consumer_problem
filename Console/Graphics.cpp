@@ -35,7 +35,8 @@ Graphics::Graphics(uint32_t bufferCapacity)
     calculateBufferWindowAllocationOffsets();
 
     init();
-    pushNewEventToLog(_nullRow);
+    _events.push_back(_nullRow);
+    _menuItems[0] = new_item(_events.front().c_str(), "");
 }
 
 Graphics::~Graphics()
@@ -197,12 +198,10 @@ void Graphics::display()
                 menu_driver(_menu, REQ_SCR_UPAGE);
                 break;
             case 'a':
-                incrementBufferAllocation();
-                pushNewEventToLog("Producer" + std::to_string(id++) + " added resource to the buffer");
+                handlePutOperation("Producer" + std::to_string(id++), "produces resource");
                 break;
             case 's':
-                decrementBufferAllocation();
-                pushNewEventToLog("Consumer" + std::to_string(id++) + " took resource from the buffer");
+                handleGetOperation("Consumer" + std::to_string(id++), "consumes resource");
                 break;
             case 'q':
                 quit = true;
@@ -221,12 +220,13 @@ void Graphics::updateBufferStatus()
     refresh();
 }
 
-void Graphics::pushNewEventToLog(const std::string& event)
+void Graphics::pushNewEventToLog(const std::string& actor, const std::string& event)
 {
-    _logger.log(event, "");
+    std::string wholeEvent(actor + " - " + event);
+    _logger.log(wholeEvent, "");
 
     shiftAndExtendMenuItems();
-    _events.insert(_events.begin(), event);
+    _events.insert(_events.begin(), wholeEvent);
     _menuItems[0] = new_item(_events.front().c_str(), "");
     _logRecords++;
 
@@ -321,4 +321,16 @@ void Graphics::decrementBufferAllocation()
             decreaseAllocationLevel();
         }
     }
+}
+
+void Graphics::handlePutOperation(const std::string& actor, const std::string& event)
+{
+    pushNewEventToLog(actor, event);
+    incrementBufferAllocation();
+}
+
+void Graphics::handleGetOperation(const std::string& actor, const std::string& event)
+{
+    pushNewEventToLog(actor, event);
+    decrementBufferAllocation();
 }

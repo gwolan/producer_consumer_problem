@@ -14,9 +14,9 @@ class Graphics
     ~Graphics();
 
     void display();
-    void pushNewEventToLog(const std::string& event);
-    void incrementBufferAllocation();
-    void decrementBufferAllocation();
+    void handlePutOperation(const std::string& actor, const std::string& event);
+    void handleGetOperation(const std::string& actor, const std::string& event);
+    void pushNewEventToLog(const std::string& actor, const std::string& event);
 
 
     private:
@@ -32,6 +32,8 @@ class Graphics
     void raiseAllocationLevel();
     void decreaseAllocationLevel();
     void updateBufferStatus();
+    void incrementBufferAllocation();
+    void decrementBufferAllocation();
 
     WINDOW* _bufferWindow;
     WINDOW* _logWindow;
