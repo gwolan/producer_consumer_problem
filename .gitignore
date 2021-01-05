@@ -1,0 +1,14 @@
+# Directories
+out/
+
+# Executables
+*.exe
+
+# Other
+*.txt
+*.md
+.vscode
+
+# Exceptions
+!README.txt
+!CMakeLists.txt
